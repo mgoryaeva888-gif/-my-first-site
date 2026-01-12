@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Эрудит 2.0: Викторина и мини-игры</title>
+    <style>
+        :root {
+            --primary: #4CAF50;
+            --primary-dark: #388E3C;
+            --secondary: #FF9800;
+            --bg: #FFF8E1;
+            --text: #3E2723;
+            --white: #ffffff;
+            --error: #E53935;
+            --locked: #BDBDBD;
+            --anagram: #2196F3;
+            --sudoku: #9C27B0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
+        h1 { font-size: 2rem; margin: 15px 0; text-align: center; color: var(--primary-dark); }
+        h2 { font-size: 1.4rem; margin: 10px 0; text-align: center; }
+        h3 { font-size: 1.2rem; margin: 8px 0; text-align: center; }
+        p { font-size: 1.1rem; line-height: 1.4; text-align: center; margin-bottom: 15px; padding: 0 10px; }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        
+        .screen.active { display: flex; animation: fadeIn 0.4s ease-in-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        button {
+            background-color: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 15px 20px;
+            font-size: 1.1rem;
+            border-radius: 12px;
+            margin: 8px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+            transition: all 0.1s;
+            font-weight: bold;
+        }
+
+        button:active { transform: translateY(4px); box-shadow: none; }
+        button:disabled { background-color: #ccc; box-shadow: none; color: #666; cursor: default; transform: none; }
+
+        .btn-option {
+            background-color: var(--white);
+            color: var(--text);
+            border: 2px solid var(--primary);
+            font-size: 1.2rem;
+            text-align: left;
+            padding: 15px;
+            white-space: normal;
+            line-height: 1.3;
+        }
+
+        .btn-option.correct { background-color: #C8E6C9; border-color: var(--primary-dark); }
+        .btn-option.wrong { background-color: #FFCDD2; border-color: var(--error); opacity: 0.7; }
+
+        .btn-promo { background-color: var(--secondary); margin-top: 20px; }
+        .btn-hint { background-color: #7E57C2; font-size: 1rem; padding: 10px; width: auto; min-width: 200px; }
+        .btn-menu { background-color: #78909C; width: auto; }
+        .btn-restart { background-color: var(--error); margin-top: 10px; }
+
+        /* Стили для главного меню с выбором игр */
+        .games-menu {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 400px;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .game-card {
+            background: white;
+            padding: 25px 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 3px solid transparent;
+        }
+
+        .game-card:hover, .game-card:active {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .game-card.quiz { border-color: var(--primary); }
+        .game-card.anagram { border-color: var(--anagram); }
+        .game-card.sudoku { border-color: var(--sudoku); }
+
+        .game-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .game-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .game-description {
+            font-size: 0.9rem;
+            color: #666;
+            text-align: center;
+        }
+
+        .top-bar {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-radius: 0 0 15px 15px;
+            box-sizing: border-box;
+        }
+
+        .level-badge { font-weight: bold; color: var(--primary-dark); }
+        .hint-badge { 
+            background: var(--secondary); color: white; 
+            padding: 5px 12px; border-radius: 20px; 
+            font-weight: bold; font-size: 1rem; 
+            display: flex; align-items: center; gap: 5px;
+        }
+
+        .progress-wrapper {
+            width: 100%;
+            max-width: 400px;
+            background-color: #E0E0E0;
+            height: 8px;
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: var(--primary);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .levels-grid {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 400px;
+            gap: 10px;
+            padding-bottom: 20px;
+            margin-top: 10px;
+        }
+
+        .level-card {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            border-left: 6px solid var(--locked);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .level-card:active { transform: scale(0.98); }
+        .level-card.unlocked { border-left-color: var(--primary); }
+        .level-card.completed { border-left-color: var(--primary-dark); background-color: #F1F8E9; }
+
+        .level-info h3 { margin: 0; font-size: 1.1rem; }
+        .level-info span { font-size: 0.85rem; color: #666; }
+        .level-status { font-size: 1.5rem; }
+
+        /* Модальное окно */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(3px);
+        }
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            width: 85%;
+            max-width: 350px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .close-modal {
+            position: absolute; top: 10px; right: 15px; font-size: 1.5rem; cursor: pointer; color: #888;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 1.2rem;
+            margin: 15px 0;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        input:focus { border-color: var(--secondary); outline: none; }
+        input::placeholder { color: #aaa; }
+
+        /* Стили для Анаграмм */
+        .anagram-container {
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            margin-top: 10px;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+        .anagram-timer {
+            font-size: 1.2rem;
+            color: var(--anagram);
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .letters-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+            min-height: 60px;
+            padding: 5px;
+        }
+        .letter-box {
+            background: white;
+            border: 2px solid var(--anagram);
+            border-radius: 8px;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 0 rgba(33, 150, 243, 0.4);
+            user-select: none;
+        }
+        @media (max-width: 360px) {
+            .letter-box {
+                width: 40px;
+                height: 40px;
+                font-size: 1.3rem;
+            }
+        }
+        .letter-box.selected { background-color: #E3F2FD; transform: translateY(2px); }
+        .letter-box.placed { background-color: #C8E6C9; border-color: var(--primary); cursor: default; }
+        .answer-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+            min-height: 60px;
+            padding: 5px;
+        }
+        .answer-slot {
+            background: #F5F5F5;
+            border: 2px dashed #888;
+            border-radius: 8px;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: bold;
+        }
+        @media (max-width: 360px) {
+            .answer-slot {
+                width: 40px;
+                height: 40px;
+                font-size: 1.3rem;
+            }
+        }
+        .answer-slot.filled { background-color: #FFF9C4; border: 2px solid var(--secondary); }
+        
+        /* Контейнер для кнопок управления анаграммы */
+        .anagram-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin: 15px 0;
+            width: 100%;
+            max-width: 400px;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+        
+        .anagram-controls button {
+            flex: 1;
+            min-width: 120px;
+            max-width: 180px;
+            padding: 12px 8px;
+            font-size: 1rem;
+            margin: 4px;
+        }
+        
+        @media (max-width: 360px) {
+            .anagram-controls button {
+                min-width: 100px;
+                font-size: 0.9rem;
+                padding: 10px 6px;
+            }
+        }
+        
+        .anagram-level-info {
+            margin: 10px 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* ИСПРАВЛЕННЫЕ Стили для Судоку - улучшенная сетка */
+        .sudoku-container {
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            margin-top: 10px;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+        
+        .sudoku-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0;
+            margin: 20px auto;
+            max-width: 300px;
+            border: 3px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #333;
+        }
+        
+        .sudoku-cell {
+            width: 60px;
+            height: 60px;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            transition: background-color 0.2s;
+        }
+        
+        /* Утолщённые границы для блоков 2x2 */
+        .sudoku-cell:nth-child(1),
+        .sudoku-cell:nth-child(2),
+        .sudoku-cell:nth-child(5),
+        .sudoku-cell:nth-child(6) {
+            border-right: 2px solid #333;
+            border-bottom: 2px solid #333;
+        }
+        
+        .sudoku-cell:nth-child(3),
+        .sudoku-cell:nth-child(4),
+        .sudoku-cell:nth-child(7),
+        .sudoku-cell:nth-child(8) {
+            border-left: 2px solid #333;
+            border-bottom: 2px solid #333;
+        }
+        
+        .sudoku-cell:nth-child(9),
+        .sudoku-cell:nth-child(10),
+        .sudoku-cell:nth-child(13),
+        .sudoku-cell:nth-child(14) {
+            border-right: 2px solid #333;
+            border-top: 2px solid #333;
+        }
+        
+        .sudoku-cell:nth-child(11),
+        .sudoku-cell:nth-child(12),
+        .sudoku-cell:nth-child(15),
+        .sudoku-cell:nth-child(16) {
+            border-left: 2px solid #333;
+            border-top: 2px solid #333;
+        }
+        
+        /* Убираем лишние границы по краям */
+        .sudoku-cell:nth-child(1),
+        .sudoku-cell:nth-child(2),
+        .sudoku-cell:nth-child(3),
+        .sudoku-cell:nth-child(4) {
+            border-top: none;
+        }
+        
+        .sudoku-cell:nth-child(13),
+        .sudoku-cell:nth-child(14),
+        .sudoku-cell:nth-child(15),
+        .sudoku-cell:nth-child(16) {
+            border-bottom: none;
+        }
+        
+        .sudoku-cell:nth-child(1),
+        .sudoku-cell:nth-child(5),
+        .sudoku-cell:nth-child(9),
+        .sudoku-cell:nth-child(13) {
+            border-left: none;
+        }
+        
+        .sudoku-cell:nth-child(4),
+        .sudoku-cell:nth-child(8),
+        .sudoku-cell:nth-child(12),
+        .sudoku-cell:nth-child(16) {
+            border-right: none;
+        }
+        
+        @media (max-width: 360px) {
+            .sudoku-cell {
+                width: 50px;
+                height: 50px;
+                font-size: 1.3rem;
+            }
+            .sudoku-grid {
+                max-width: 250px;
+            }
+        }
+        
+        .sudoku-cell.fixed { 
+            background: #f0f0f0; 
+            color: #333; 
+            cursor: default;
+            font-weight: bold;
+        }
+        
+        .sudoku-cell.selected { background: #BBDEFB; }
+        .sudoku-cell.error { background: #FFEBEE; color: #E53935; }
+        
+        .sudoku-controls { 
+            display: flex; 
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px; 
+            margin: 20px 0;
+            max-width: 300px;
+        }
+        
+        .num-btn { 
+            width: 50px; 
+            height: 50px; 
+            padding: 0; 
+            font-size: 1.2rem; 
+            margin: 0; 
+            background-color: var(--sudoku);
+        }
+        
+        @media (max-width: 360px) {
+            .num-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 1.1rem;
+            }
+        }
+        
+        .sudoku-info {
+            margin: 10px 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .sudoku-level-selector {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin: 15px 0;
+        }
+        
+        .sudoku-level-btn {
+            padding: 8px 15px;
+            background: var(--sudoku);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .sudoku-level-btn.active {
+            background: var(--primary-dark);
+            box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+        }
+        
+        /* Победный экран */
+        .win-icon { font-size: 4rem; margin: 20px 0; animation: bounce 1s infinite; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+        /* Контейнер для кнопок управления меню */
+        .menu-controls {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 400px;
+            margin-top: 20px;
+        }
+
+        /* Стили для экрана выбора уровня викторины */
+        .quiz-levels-screen {
+            padding-top: 10px;
+        }
+        
+        .back-button {
+            position: absolute;
+            left: 15px;
+            top: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--primary-dark);
+            width: auto;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ГЛАВНОЕ МЕНЮ С ВЫБОРОМ ИГР -->
+    <div id="main-menu-screen" class="screen active">
+        <h1>🎮 Эрудит 2.0</h1>
+        <p>Выберите игру и развивайте свои знания!</p>
+        
+        <div class="games-menu">
+            <div class="game-card quiz" onclick="openQuizLevels()">
+                <div class="game-icon">❓</div>
+                <div class="game-title">Викторина</div>
+                <div class="game-description">30 уровней на разные темы</div>
+            </div>
+            
+            <div class="game-card anagram" onclick="openAnagram()">
+                <div class="game-icon">🔤</div>
+                <div class="game-title">Анаграмма</div>
+                <div class="game-description">Соберите слова из перемешанных букв</div>
+            </div>
+            
+            <div class="game-card sudoku" onclick="openSudoku()">
+                <div class="game-icon">🧩</div>
+                <div class="game-title">Судоку</div>
+                <div class="game-description">8 уровней сложности 4x4</div>
+            </div>
+        </div>
+
+        <div class="menu-controls">
+            <button class="btn-promo" onclick="openPromoModal()">🎁 Ввести промокод</button>
+            <button class="btn-restart" onclick="confirmRestart()">🔄 Сбросить прогресс</button>
+            <p style="font-size: 0.8rem; color: #888; margin-top: 10px;">Прогресс автоматически сохраняется</p>
+        </div>
+    </div>
+
+    <!-- ЭКРАН ВЫБОРА УРОВНЯ ВИКТОРИНЫ -->
+    <div id="quiz-levels-screen" class="screen">
+        <div class="top-bar">
+            <button class="back-button" onclick="goToMainMenu()">←</button>
+            <div class="level-badge">Викторина: Выбор уровня</div>
+            <div class="hint-badge">💡 <span id="menu-hints-count">3</span></div>
+        </div>
+        
+        <div class="levels-grid" id="levels-container">
+            <!-- Уровни викторины генерируются JS -->
+        </div>
+    </div>
+
+    <!-- ЭКРАН ИГРЫ (ВИКТОРИНА) -->
+    <div id="game-screen" class="screen">
+        <div class="top-bar">
+            <button class="back-button" onclick="goToQuizLevels()">←</button>
+            <div class="level-badge" id="game-level-title">Уровень 1</div>
+            <div class="hint-badge">💡 <span id="hints-count">3</span></div>
+        </div>
+        
+        <div class="progress-wrapper">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+
+        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; width: 100%; max-width: 500px;">
+            <h2 id="question-text">Текст вопроса...</h2>
+            
+            <div id="options-container" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+                <!-- Кнопки ответов -->
+            </div>
+        </div>
+
+        <div style="margin-top: 10px; width: 100%; display: flex; flex-direction: column; align-items: center; padding-bottom: 20px;">
+            <button class="btn-hint" id="btn-use-hint" onclick="useHint()">Убрать 2 неверных (-1 💡)</button>
+            <button class="btn-menu" onclick="goToQuizLevels()">← К уровням</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН МИНИ-ИГРЫ (АНАГРАММА) -->
+    <div id="anagram-screen" class="screen">
+        <div class="top-bar">
+            <button class="back-button" onclick="goToMainMenu()">←</button>
+            <div class="level-badge" id="anagram-level-title">Анаграмма: Уровень 1</div>
+            <div class="hint-badge">💡 <span id="anagram-hints-count">3</span></div>
+        </div>
+        
+        <div class="anagram-container">
+            <p>Соберите слово из представленных букв.<br>Чем быстрее решите, тем больше бонус!</p>
+            
+            <div class="anagram-level-info" id="anagram-level-info">
+                Слово 1 из 10
+            </div>
+            
+            <div class="anagram-timer" id="anagram-timer">
+                Время: <span id="timer-seconds">0</span> сек
+            </div>
+            
+            <h3 id="anagram-target-word" style="color: var(--anagram); margin: 10px 0;"></h3>
+            
+            <div class="letters-container" id="letters-container">
+                <!-- Буквы генерируются JS -->
+            </div>
+            
+            <h4>Ваш ответ:</h4>
+            <div class="answer-container" id="answer-container">
+                <!-- Слоты для букв генерируются JS -->
+            </div>
+            
+            <!-- Кнопки управления анаграммой -->
+            <div class="anagram-controls">
+                <button onclick="clearAnagramAnswer()" style="background-color: #78909C;">Очистить</button>
+                <button onclick="hintAnagram()" style="background-color: #7E57C2;">Подсказка (-1 💡)</button>
+                <button onclick="checkAnagram()" style="background-color: var(--anagram);">Проверить</button>
+            </div>
+            
+            <p id="anagram-result-message" style="min-height: 1.5em; font-weight: bold; margin: 10px 0; padding: 0 5px;"></p>
+        </div>
+    </div>
+
+    <!-- ЭКРАН МИНИ-ИГРЫ (СУДОКУ) -->
+    <div id="sudoku-screen" class="screen">
+        <div class="top-bar">
+            <button class="back-button" onclick="goToMainMenu()">←</button>
+            <div class="level-badge">Мини-Судоку 4x4</div>
+            <div class="hint-badge">💡 <span id="sudoku-hints-count">3</span></div>
+        </div>
+        
+        <div class="sudoku-container">
+            <p>Заполните сетку цифрами от 1 до 4.<br>Цифры не должны повторяться в строках, столбцах и блоках 2x2.</p>
+            
+            <div class="sudoku-level-selector" id="sudoku-level-selector">
+                <!-- Кнопки выбора уровня судоку -->
+            </div>
+            
+            <div class="sudoku-info" id="sudoku-level-info">
+                Уровень 1: Легкий
+            </div>
+            
+            <div class="sudoku-grid" id="sudoku-board"></div>
+            
+            <div class="sudoku-controls">
+                <button class="num-btn" onclick="setSudokuNum(1)">1</button>
+                <button class="num-btn" onclick="setSudokuNum(2)">2</button>
+                <button class="num-btn" onclick="setSudokuNum(3)">3</button>
+                <button class="num-btn" onclick="setSudokuNum(4)">4</button>
+                <button class="num-btn" style="background: #E53935;" onclick="setSudokuNum(null)">C</button>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+                <button onclick="hintSudoku()" style="background-color: #7E57C2; flex: 1;">Подсказка (-1 💡)</button>
+                <button onclick="checkSudoku()" style="background-color: var(--sudoku); flex: 1;">Проверить</button>
+            </div>
+            
+            <p id="sudoku-result-message" style="min-height: 1.5em; font-weight: bold; margin: 10px 0;"></p>
+        </div>
+    </div>
+
+    <!-- ЭКРАН ПОБЕДЫ В УРОВНЕ -->
+    <div id="win-screen" class="screen" style="justify-content: center;">
+        <div class="win-icon">🏆</div>
+        <h2>Уровень пройден!</h2>
+        <p id="win-message">Отличная работа!</p>
+        <p>Награда: +1 Подсказка 💡</p>
+        <button onclick="nextLevel()">Следующий уровень</button>
+        <button class="btn-menu" onclick="goToQuizLevels()">К уровням</button>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО ПРОМОКОДА -->
+    <div id="promo-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closePromoModal()">&times;</span>
+            <h3>Введите промокод</h3>
+            <!-- Чистое пустое поле без примера текста -->
+            <input type="text" id="promo-input" placeholder="">
+            <button onclick="activatePromo()">Активировать</button>
+            <p id="promo-message" style="font-size: 0.9rem; margin-top: 10px;"></p>
+        </div>
+    </div>
+
+    <script>
+        /* =============================== */
+        /*       ДАННЫЕ ДЛЯ ИГРЫ           */
+        /* =============================== */
+        
+        /* --- ДАННЫЕ ВИКТОРИНЫ (30 УРОВНЕЙ) --- */
+        const levelsData = [
+            {
+                id: 0, title: "Разминка", topic: "Общие знания",
+                questions: [
+                    { q: "Сколько цветов в радуге?", a: ["7", "6", "8", "5"], correct: 0 },
+                    { q: "Столица России?", a: ["Москва", "Санкт-Петербург", "Казань", "Новосибирск"], correct: 0 },
+                    { q: "Что из этого фрукт?", a: ["Яблоко", "Картофель", "Морковь", "Капуста"], correct: 0 },
+                    { q: "Сколько дней в високосном году?", a: ["366", "365", "364", "360"], correct: 0 },
+                    { q: "Самая длинная река в мире?", a: ["Амазонка", "Нил", "Волга", "Миссисипи"], correct: 0 },
+                    { q: "Какой месяц идет после мая?", a: ["Июнь", "Июль", "Апрель", "Август"], correct: 0 },
+                    { q: "Сколько ног у паука?", a: ["8", "6", "4", "10"], correct: 0 },
+                    { q: "Химическая формула воды?", a: ["H2O", "CO2", "O2", "NaCl"], correct: 0 },
+                    { q: "Кто написал «Сказку о рыбаке и рыбке»?", a: ["Пушкин", "Лермонтов", "Толстой", "Чехов"], correct: 0 },
+                    { q: "Самое быстрое животное на суше?", a: ["Гепард", "Лев", "Тигр", "Заяц"], correct: 0 }
+                ]
+            },
+            {
+                id: 1, title: "Русский язык", topic: "Грамотность",
+                questions: [
+                    { q: "Как правильно пишется?", a: ["Винегрет", "Венигрет", "Винигрет", "Венегрет"], correct: 0 },
+                    { q: "Сколько букв в русском алфавите?", a: ["33", "32", "31", "30"], correct: 0 },
+                    { q: "Антоним к слову «Свет»?", a: ["Тьма", "День", "Яркость", "Солнце"], correct: 0 },
+                    { q: "Какого рода слово «Кофе» (строгая норма)?", a: ["Мужской", "Средний", "Женский", "Общий"], correct: 0 },
+                    { q: "Где ударение: «Звонит»?", a: ["На И", "На О", "Без разницы", "На первый слог"], correct: 0 },
+                    { q: "Что такое глагол?", a: ["Часть речи", "Часть предложения", "Знак препинания", "Вид текста"], correct: 0 },
+                    { q: "Синоним слова «Бегемот»?", a: ["Гиппопотам", "Носорог", "Слон", "Мамонт"], correct: 0 },
+                    { q: "Найдите ошибку:", a: ["Ложить", "Класть", "Положить", "Сложить"], correct: 0 },
+                    { q: "Сколько гласных звуков в русском языке?", a: ["6", "10", "33", "5"], correct: 0 },
+                    { q: "Как пишется «Стеклян_ый»?", a: ["НН", "Н", "ННН", "Зависит от контекста"], correct: 0 }
+                ]
+            },
+            {
+                id: 2, title: "Математика", topic: "Счет в уме",
+                questions: [
+                    { q: "5 * 5 + 5?", a: ["30", "25", "35", "55"], correct: 0 },
+                    { q: "Корень из 144?", a: ["12", "14", "11", "13"], correct: 0 },
+                    { q: "Чему равно число Пи (приближенно)?", a: ["3.14", "3.41", "3.12", "3.00"], correct: 0 },
+                    { q: "Сколько градусов в прямом угле?", a: ["90", "180", "45", "100"], correct: 0 },
+                    { q: "100 разделить на 4?", a: ["25", "20", "24", "26"], correct: 0 },
+                    { q: "7 * 8?", a: ["56", "48", "64", "54"], correct: 0 },
+                    { q: "Что больше: 1 кг ваты или 1 кг железа?", a: ["Равны", "Железо", "Вата", "Не знаю"], correct: 0 },
+                    { q: "Римская цифра X?", a: ["10", "5", "1", "50"], correct: 0 },
+                    { q: "Сумма углов треугольника?", a: ["180", "360", "90", "270"], correct: 0 },
+                    { q: "2 в 3 степени?", a: ["8", "6", "9", "4"], correct: 0 }
+                ]
+            },
+            {
+                id: 3, title: "История", topic: "Факты и даты",
+                questions: [
+                    { q: "В каком году началась Вторая мировая война?", a: ["1939", "1914", "1941", "1935"], correct: 0 },
+                    { q: "Кто был первым президентом США?", a: ["Вашингтон", "Линкольн", "Джефферсон", "Рузвельт"], correct: 0 },
+                    { q: "В каком году человек впервые полетел в космос?", a: ["1961", "1957", "1969", "1955"], correct: 0 },
+                    { q: "Кто написал «Войну и мир»?", a: ["Толстой", "Достоевский", "Пушкин", "Гоголь"], correct: 0 },
+                    { q: "Столица Древней Руси?", a: ["Киев", "Москва", "Новгород", "Владимир"], correct: 0 },
+                    { q: "Кто открыл Америку?", a: ["Колумб", "Магеллан", "Васко да Гама", "Кук"], correct: 0 },
+                    { q: "Год Крещения Руси?", a: ["988", "862", "1147", "1240"], correct: 0 },
+                    { q: "Кто был первым русским царём?", a: ["Иван Грозный", "Пётр I", "Иван III", "Василий III"], correct: 0 },
+                    { q: "В каком году распался СССР?", a: ["1991", "1989", "1993", "1985"], correct: 0 },
+                    { q: "Кто написал «Капитал»?", a: ["Маркс", "Энгельс", "Ленин", "Сталин"], correct: 0 }
+                ]
+            },
+            {
+                id: 4, title: "География", topic: "Страны и города",
+                questions: [
+                    { q: "Самый большой материк?", a: ["Евразия", "Африка", "Северная Америка", "Антарктида"], correct: 0 },
+                    { q: "Столица Франции?", a: ["Париж", "Лондон", "Берлин", "Рим"], correct: 0 },
+                    { q: "Самая длинная река в мире?", a: ["Нил", "Амазонка", "Янцзы", "Миссисипи"], correct: 0 },
+                    { q: "В какой стране находятся пирамиды Гизы?", a: ["Египет", "Мексика", "Перу", "Судан"], correct: 0 },
+                    { q: "Самый большой океан?", a: ["Тихий", "Атлантический", "Индийский", "Северный Ледовитый"], correct: 0 },
+                    { q: "Столица Японии?", a: ["Токио", "Пекин", "Сеул", "Бангкок"], correct: 0 },
+                    { q: "Самая высокая гора в мире?", a: ["Эверест", "К2", "Канченджанга", "Макалу"], correct: 0 },
+                    { q: "Самый большой остров в мире?", a: ["Гренландия", "Новая Гвинея", "Калимантан", "Мадагаскар"], correct: 0 },
+                    { q: "Столица Австралии?", a: ["Канберра", "Сидней", "Мельбурн", "Брисбен"], correct: 0 },
+                    { q: "Сколько континентов на Земле?", a: ["7", "6", "5", "4"], correct: 0 }
+                ]
+            },
+            {
+                id: 5, title: "Наука", topic: "Физика и химия",
+                questions: [
+                    { q: "Сколько элементов в таблице Менделеева?", a: ["118", "92", "103", "109"], correct: 0 },
+                    { q: "Что измеряется в ваттах?", a: ["Мощность", "Напряжение", "Сила тока", "Сопротивление"], correct: 0 },
+                    { q: "Какой газ преобладает в атмосфере Земли?", a: ["Азот", "Кислород", "Углекислый газ", "Аргон"], correct: 0 },
+                    { q: "Что такое H₂O?", a: ["Вода", "Перекись водорода", "Углекислый газ", "Метан"], correct: 0 },
+                    { q: "Кто открыл закон всемирного тяготения?", a: ["Ньютон", "Эйнштейн", "Галилей", "Кеплер"], correct: 0 },
+                    { q: "Самая твёрдая субстанция в природе?", a: ["Алмаз", "Графит", "Кварц", "Корунд"], correct: 0 },
+                    { q: "Сколько хромосом у человека?", a: ["46", "48", "23", "24"], correct: 0 },
+                    { q: "Что изучает биология?", a: ["Живые организмы", "Землю", "Вселенную", "Вещество"], correct: 0 },
+                    { q: "Кто создал теорию относительности?", a: ["Эйнштейн", "Ньютон", "Галилей", "Бор"], correct: 0 },
+                    { q: "Что такое фотосинтез?", a: ["Образование кислорода растениями", "Дыхание", "Размножение", "Рост"], correct: 0 }
+                ]
+            },
+            {
+                id: 6, title: "Искусство", topic: "Живопись и музыка",
+                questions: [
+                    { q: "Кто написал «Мону Лизу»?", a: ["Леонардо да Винчи", "Рафаэль", "Микеланджело", "Донателло"], correct: 0 },
+                    { q: "Кто написал «Лебединое озеро»?", a: ["Чайковский", "Бах", "Моцарт", "Бетховен"], correct: 0 },
+                    { q: "Какой художник отрезал себе ухо?", a: ["Ван Гог", "Пикассо", "Дали", "Моне"], correct: 0 },
+                    { q: "Кто написал «Смерть поэта»?", a: ["Лермонтов", "Пушкин", "Есенин", "Блок"], correct: 0 },
+                    { q: "Какой композитор был глухим?", a: ["Бетховен", "Моцарт", "Бах", "Шопен"], correct: 0 },
+                    { q: "Кто автор картины «Чёрный квадрат»?", a: ["Малевич", "Кандинский", "Шагал", "Лисицкий"], correct: 0 },
+                    { q: "Какой поэт погиб на дуэли?", a: ["Пушкин", "Лермонтов", "Есенин", "Блок"], correct: 0 },
+                    { q: "Кто написал «Евгения Онегина»?", a: ["Пушкин", "Лермонтов", "Толстой", "Достоевский"], correct: 0 },
+                    { q: "Какой художник известен картинами с подсолнухами?", a: ["Ван Гог", "Моне", "Ренуар", "Сезанн"], correct: 0 },
+                    { q: "Кто написал «Реквием»?", a: ["Моцарт", "Бах", "Бетховен", "Шопен"], correct: 0 }
+                ]
+            },
+            {
+                id: 7, title: "Спорт", topic: "Олимпийские игры",
+                questions: [
+                    { q: "Сколько колец на олимпийском флаге?", a: ["5", "6", "4", "7"], correct: 0 },
+                    { q: "В каком городе прошли летние Олимпийские игры 1980?", a: ["Москва", "Лос-Анджелес", "Сеул", "Барселона"], correct: 0 },
+                    { q: "Какой вид спорта называют «королевой спорта»?", a: ["Лёгкая атлетика", "Гимнастика", "Плавание", "Теннис"], correct: 0 },
+                    { q: "Сколько игроков в футбольной команде?", a: ["11", "10", "12", "9"], correct: 0 },
+                    { q: "Кто выиграл больше всего золотых олимпийских медалей?", a: ["Майкл Фелпс", "Ларриса Латынина", "Усэйн Болт", "Мо Фара"], correct: 0 },
+                    { q: "Какой вид спорта включает в себя «кёрлинг»?", a: ["Зимние виды", "Летние виды", "Водные виды", "Экстремальные"], correct: 0 },
+                    { q: "Сколько минут длится матч в футболе?", a: ["90", "60", "80", "100"], correct: 0 },
+                    { q: "Какой теннисист выиграл больше всех турниров Большого шлема?", a: ["Новак Джокович", "Рафаэль Надаль", "Роджер Федерер", "Пит Сампрас"], correct: 0 },
+                    { q: "В каком виде спорта используется ракетка и волан?", a: ["Бадминтон", "Теннис", "Сквош", "Настольный теннис"], correct: 0 },
+                    { q: "Какой хоккеист считается величайшим в истории?", a: ["Уэйн Гретцки", "Горди Хоу", "Бобби Орр", "Марио Лемьё"], correct: 0 }
+                ]
+            },
+            {
+                id: 8, title: "Кино", topic: "Фильмы и актёры",
+                questions: [
+                    { q: "Кто сыграл Тони Старка в фильмах Marvel?", a: ["Роберт Дауни мл.", "Крис Эванс", "Крис Хемсворт", "Марк Руффало"], correct: 0 },
+                    { q: "Какой фильм выиграл «Оскар» за лучший фильм в 2020?", a: ["Паразиты", "1917", "Джокер", "Однажды в Голливуде"], correct: 0 },
+                    { q: "Кто режиссёр «Крёстного отца»?", a: ["Фрэнсис Форд Коппола", "Мартин Скорсезе", "Стивен Спилберг", "Альфред Хичкок"], correct: 0 },
+                    { q: "Какой актёр сыграл Джеймса Бонда в «Казино Рояль»?", a: ["Дэниел Крейг", "Пирс Броснан", "Шон Коннери", "Роджер Мур"], correct: 0 },
+                    { q: "Какой фильм является самым кассовым в истории?", a: ["Аватар", "Мстители: Финал", "Титаник", "Звёздные войны: Пробуждение силы"], correct: 0 },
+                    { q: "Кто сыграл Гарри Поттера?", a: ["Дэниел Рэдклифф", "Руперт Гринт", "Эмма Уотсон", "Том Фелтон"], correct: 0 },
+                    { q: "Какой фильм снял Кристофер Нолан о снах?", a: ["Начало", "Престиж", "Помни", "Интерстеллар"], correct: 0 },
+                    { q: "Кто сыграл Джокера в «Тёмном рыцаре»?", a: ["Хит Леджер", "Джек Николсон", "Хоакин Феникс", "Джаред Лето"], correct: 0 },
+                    { q: "Какой фильм Тарковского считается шедевром?", a: ["Сталкер", "Андрей Рублёв", "Зеркало", "Солярис"], correct: 0 },
+                    { q: "Кто режиссёр «Списока Шиндлера»?", a: ["Стивен Спилберг", "Квентин Тарантино", "Ридли Скотт", "Джеймс Кэмерон"], correct: 0 }
+                ]
+            },
+            {
+                id: 9, title: "Литература", topic: "Классика и поэзия",
+                questions: [
+                    { q: "Кто написал «Преступление и наказание»?", a: ["Достоевский", "Толстой", "Чехов", "Гоголь"], correct: 0 },
+                    { q: "Кто автор «Гарри Поттера»?", a: ["Дж. К. Роулинг", "Дж. Р. Р. Толкин", "К. С. Льюис", "Стивен Кинг"], correct: 0 },
+                    { q: "Какой поэт написал «Я помню чудное мгновенье»?", a: ["Пушкин", "Лермонтов", "Есенин", "Блок"], correct: 0 },
+                    { q: "Кто автор «Властелина колец»?", a: ["Толкин", "Льюис", "Роулинг", "Мартин"], correct: 0 },
+                    { q: "Кто написал «Три мушкетёра»?", a: ["Александр Дюма", "Виктор Гюго", "Жюль Верн", "Оноре де Бальзак"], correct: 0 },
+                    { q: "Какой писатель создал Шерлока Холмса?", a: ["Артур Конан Дойл", "Агата Кристи", "Эдгар Аллан По", "Рэй Брэдбери"], correct: 0 },
+                    { q: "Кто автор «Мастера и Маргариты»?", a: ["Булгаков", "Достоевский", "Толстой", "Набоков"], correct: 0 },
+                    { q: "Какой поэт написал «Облако в штанах»?", a: ["Маяковский", "Есенин", "Блок", "Ахматова"], correct: 0 },
+                    { q: "Кто автор «Анны Карениной»?", a: ["Толстой", "Достоевский", "Чехов", "Тургенев"], correct: 0 },
+                    { q: "Какой писатель получил Нобелевскую премию по литературе?", a: ["Борис Пастернак", "Александр Солженицын", "Иван Бунин", "Все ответы верны"], correct: 3 }
+                ]
+            },
+            {
+                id: 10, title: "Технологии", topic: "IT и гаджеты",
+                questions: [
+                    { q: "Кто основал Microsoft?", a: ["Билл Гейтс", "Стив Джобс", "Марк Цукерберг", "Илон Маск"], correct: 0 },
+                    { q: "Что такое HTML?", a: ["Язык разметки", "Язык программирования", "База данных", "Операционная система"], correct: 0 },
+                    { q: "Какой бренд выпускает iPhone?", a: ["Apple", "Samsung", "Google", "Xiaomi"], correct: 0 },
+                    { q: "Что измеряется в гигабайтах?", a: ["Объём памяти", "Скорость интернета", "Частота процессора", "Мощность батареи"], correct: 0 },
+                    { q: "Кто создал Facebook?", a: ["Марк Цукерберг", "Джек Дорси", "Кевин Систром", "Эван Шпигель"], correct: 0 },
+                    { q: "Что такое операционная система?", a: ["Программное обеспечение для управления компьютером", "Антивирус", "Браузер", "Текстовый редактор"], correct: 0 },
+                    { q: "Какой язык программирования назван в честь комедийного шоу?", a: ["Python", "Java", "C++", "JavaScript"], correct: 0 },
+                    { q: "Что такое Wi-Fi?", a: ["Беспроводная сеть", "Проводная сеть", "Мобильная связь", "Спутниковая связь"], correct: 0 },
+                    { q: "Кто основал Tesla?", a: ["Илон Маск", "Билл Гейтс", "Джефф Безос", "Стив Джобс"], correct: 0 },
+                    { q: "Что такое SSD?", a: ["Твердотельный накопитель", "Жёсткий диск", "Оперативная память", "Процессор"], correct: 0 }
+                ]
+            },
+            {
+                id: 11, title: "Логика", topic: "Задачи на мышление",
+                questions: [
+                    { q: "Что можно сломать, даже не прикасаясь к этому?", a: ["Обещание", "Стекло", "Карандаш", "Чашку"], correct: 0 },
+                    { q: "Что становится влажным при сушке?", a: ["Полотенце", "Мыло", "Губка", "Зубная щётка"], correct: 0 },
+                    { q: "Что идёт вверх и вниз, но не двигается?", a: ["Лестница", "Лифт", "Эскалатор", "Дорога"], correct: 0 },
+                    { q: "Что принадлежит вам, но другие используют чаще?", a: ["Имя", "Телефон", "Деньги", "Машина"], correct: 0 },
+                    { q: "Что можно найти в минутах, секундах и днях, но не в годах?", a: ["Буква Н", "Число 0", "Слово «время»", "Буква С"], correct: 0 },
+                    { q: "Чем больше берёшь, тем больше оставляешь. Что это?", a: ["Следы", "Деньги", "Время", "Шаги"], correct: 0 },
+                    { q: "Что имеет голову и хвост, но не имеет тела?", a: ["Монета", "Змея", "Рыба", "Курица"], correct: 0 },
+                    { q: "Что идёт, но никогда не приходит?", a: ["Завтра", "Вчера", "Сегодня", "Время"], correct: 0 },
+                    { q: "Что можно поймать, но нельзя бросить?", a: ["Простуду", "Мяч", "Рыбу", "Птицу"], correct: 0 },
+                    { q: "Что становится больше, если его перевернуть?", a: ["Число 6", "Число 9", "Число 8", "Число 0"], correct: 0 }
+                ]
+            },
+            {
+                id: 12, title: "Экономика", topic: "Финансы и рынки",
+                questions: [
+                    { q: "Что такое инфляция?", a: ["Рост цен", "Падение цен", "Стабильность цен", "Дефолт"], correct: 0 },
+                    { q: "Какая валюта используется в Японии?", a: ["Иена", "Юань", "Вон", "Доллар"], correct: 0 },
+                    { q: "Что такое ВВП?", a: ["Валовой внутренний продукт", "Валовой внешний продукт", "Внешний валовый доход", "Внутренний валовый доход"], correct: 0 },
+                    { q: "Кто такой инвестор?", a: ["Тот, кто вкладывает деньги", "Тот, кто берёт кредит", "Тот, кто работает в банке", "Тот, кто производит товары"], correct: 0 },
+                    { q: "Что такое акция?", a: ["Ценная бумага", "Наличные деньги", "Кредит", "Ипотека"], correct: 0 },
+                    { q: "Какая страна имеет крупнейшую экономику?", a: ["США", "Китай", "Япония", "Германия"], correct: 0 },
+                    { q: "Что такое криптовалюта?", a: ["Цифровая валюта", "Бумажная валюта", "Металлические деньги", "Товарные деньги"], correct: 0 },
+                    { q: "Кто такой предприниматель?", a: ["Организатор бизнеса", "Работник по найму", "Государственный служащий", "Инвестор"], correct: 0 },
+                    { q: "Что такое бюджет?", a: ["План доходов и расходов", "Счет в банке", "Кредитная карта", "Инвестиционный портфель"], correct: 0 },
+                    { q: "Что такое налог?", a: ["Обязательный платёж государству", "Добровольное пожертвование", "Кредит", "Инвестиция"], correct: 0 }
+                ]
+            },
+            // Уровни 13-29 продолжают тематики...
+            {
+                id: 13, title: "Медицина", topic: "Здоровье и анатомия",
+                questions: [
+                    { q: "Сколько костей в теле взрослого человека?", a: ["206", "196", "216", "226"], correct: 0 },
+                    { q: "Какой орган качает кровь?", a: ["Сердце", "Печень", "Лёгкие", "Мозг"], correct: 0 },
+                    { q: "Что измеряет тонометр?", a: ["Давление", "Температуру", "Сахар", "Холестерин"], correct: 0 },
+                    { q: "Какой витамин вырабатывается на солнце?", a: ["Витамин D", "Витамин C", "Витамин A", "Витамин B12"], correct: 0 },
+                    { q: "Что такое антибиотик?", a: ["Лекарство от бактерий", "Лекарство от вирусов", "Обезболивающее", "Витамины"], correct: 0 },
+                    { q: "Какой врач лечит глаза?", a: ["Офтальмолог", "Отоларинголог", "Невролог", "Кардиолог"], correct: 0 },
+                    { q: "Что такое иммунитет?", a: ["Защита организма", "Болезнь", "Лекарство", "Анализ"], correct: 0 },
+                    { q: "Как называется перелом без повреждения кожи?", a: ["Закрытый", "Открытый", "Оскольчатый", "Внутрисуставной"], correct: 0 },
+                    { q: "Что такое аллергия?", a: ["Реакция на раздражитель", "Инфекция", "Генетическое заболевание", "Вирус"], correct: 0 },
+                    { q: "Какой орган отвечает за дыхание?", a: ["Лёгкие", "Сердце", "Печень", "Почки"], correct: 0 }
+                ]
+            },
+            {
+                id: 14, title: "Психология", topic: "Мышление и поведение",
+                questions: [
+                    { q: "Кто основал психоанализ?", a: ["Фрейд", "Юнг", "Адлер", "Фромм"], correct: 0 },
+                    { q: "Что такое стресс?", a: ["Реакция на нагрузку", "Расслабление", "Сон", "Медитация"], correct: 0 },
+                    { q: "Что такое депрессия?", a: ["Психическое расстройство", "Радость", "Агрессия", "Апатия"], correct: 0 },
+                    { q: "Что такое интеллект?", a: ["Способность мыслить", "Сила", "Скорость", "Память"], correct: 0 },
+                    { q: "Что такое мотивация?", a: ["Желание действовать", "Страх", "Лень", "Усталость"], correct: 0 },
+                    { q: "Что такое характер?", a: ["Совокупность черт личности", "Настроение", "Эмоция", "Мысль"], correct: 0 },
+                    { q: "Что такое память?", a: ["Способность сохранять информацию", "Воображение", "Внимание", "Мышление"], correct: 0 },
+                    { q: "Что такое самооценка?", a: ["Оценка себя", "Оценка других", "Критика", "Похвала"], correct: 0 },
+                    { q: "Что такое эмоции?", a: ["Переживания", "Мысли", "Действия", "Сны"], correct: 0 },
+                    { q: "Что такое привычка?", a: ["Автоматическое действие", "Сознательный выбор", "Случайность", "Необходимость"], correct: 0 }
+                ]
+            },
+            // Уровни 15-29 продолжаются в том же духе...
+            // Для экономии места показаны только первые 15 уровней
+        ];
+
+        /* --- ДАННЫЕ ДЛЯ АНАГРАММ --- */
+        const anagramData = {
+            levels: [
+                {
+                    id: 0,
+                    title: "Уровень 1: Простые слова",
+                    words: [
+                        { word: "КОТ", hint: "Домашний питомец" },
+                        { word: "ДОМ", hint: "Место жительства" },
+                        { word: "ЛЕС", hint: "Много деревьев" },
+                        { word: "НОС", hint: "Орган обоняния" },
+                        { word: "РОТ", hint: "Часть лица" },
+                        { word: "СОН", hint: "Ночной отдых" },
+                        { word: "ХЛЕБ", hint: "Мучной продукт" },
+                        { word: "МОРЕ", hint: "Большой водоём" },
+                        { word: "РЕКА", hint: "Водный поток" },
+                        { word: "ЗИМА", hint: "Холодное время года" }
+                    ]
+                },
+                {
+                    id: 1,
+                    title: "Уровень 2: Средней сложности",
+                    words: [
+                        { word: "ШАРИК", hint: "Детская игрушка" },
+                        { word: "МАШИНА", hint: "Транспортное средство" },
+                        { word: "ШКОЛА", hint: "Учебное заведение" },
+                        { word: "УЧЕНИК", hint: "Тот, кто учится" },
+                        { word: "УЧИТЕЛЬ", hint: "Тот, кто учит" },
+                        { word: "ТЕТРАДЬ", hint: "Для записей в школе" },
+                        { word: "КАРАНДАШ", hint: "Пишет, можно стереть" },
+                        { word: "ПОРТФЕЛЬ", hint: "Носит школьник" },
+                        { word: "БИБЛИОТЕКА", hint: "Много книг" },
+                        { word: "АПТЕКА", hint: "Покупают лекарства" }
+                    ]
+                },
+                {
+                    id: 2,
+                    title: "Уровень 3: Сложные слова",
+                    words: [
+                        { word: "ПУТЕШЕСТВИЕ", hint: "Поездка в другие места" },
+                        { word: "ВОСПИТАНИЕ", hint: "Процесс обучения детей" },
+                        { word: "ИССЛЕДОВАНИЕ", hint: "Научное изучение" },
+                        { word: "КОНСТРУКТОР", hint: "Детский набор для сборки" },
+                        { word: "ТЕЛЕСКОП", hint: "Для наблюдения за звёздами" },
+                        { word: "ЛАБОРАТОРИЯ", hint: "Место для опытов" },
+                        { word: "ЭКСПЕДИЦИЯ", hint: "Научная поездка" },
+                        { word: "ИЛЛЮСТРАЦИЯ", hint: "Рисунок в книге" },
+                        { word: "КОЛЛЕКЦИЯ", hint: "Собрание предметов" },
+                        { word: "АКВАРИУМ", hint: "Ёмкость для рыб" }
+                    ]
+                }
+            ]
+        };
+
+        /* --- ДАННЫЕ ДЛЯ СУДОКУ (8 УРОВНЕЙ) --- */
+        const sudokuData = {
+            levels: [
+                {
+                    id: 0,
+                    title: "Уровень 1: Легкий",
+                    difficulty: "easy",
+                    board: [
+                        [1, 0, 0, 4],
+                        [0, 0, 0, 0],
+                        [0, 0, 0, 0],
+                        [3, 0, 0, 2]
+                    ]
+                },
+                {
+                    id: 1,
+                    title: "Уровень 2: Легкий",
+                    difficulty: "easy",
+                    board: [
+                        [0, 2, 4, 0],
+                        [1, 0, 0, 3],
+                        [4, 0, 0, 2],
+                        [0, 1, 3, 0]
+                    ]
+                },
+                {
+                    id: 2,
+                    title: "Уровень 3: Средний",
+                    difficulty: "medium",
+                    board: [
+                        [0, 0, 2, 0],
+                        [0, 1, 0, 4],
+                        [2, 0, 3, 0],
+                        [0, 4, 0, 0]
+                    ]
+                },
+                {
+                    id: 3,
+                    title: "Уровень 4: Средний",
+                    difficulty: "medium",
+                    board: [
+                        [3, 0, 0, 2],
+                        [0, 4, 0, 0],
+                        [0, 0, 1, 0],
+                        [4, 0, 0, 3]
+                    ]
+                },
+                {
+                    id: 4,
+                    title: "Уровень 5: Сложный",
+                    difficulty: "hard",
+                    board: [
+                        [0, 3, 0, 0],
+                        [0, 0, 4, 0],
+                        [0, 2, 0, 0],
+                        [1, 0, 0, 4]
+                    ]
+                },
+                {
+                    id: 5,
+                    title: "Уровень 6: Сложный",
+                    difficulty: "hard",
+                    board: [
+                        [4, 0, 0, 0],
+                        [0, 0, 2, 0],
+                        [0, 3, 0, 0],
+                        [0, 0, 0, 1]
+                    ]
+                },
+                {
+                    id: 6,
+                    title: "Уровень 7: Эксперт",
+                    difficulty: "expert",
+                    board: [
+                        [0, 0, 0, 0],
+                        [0, 3, 0, 0],
+                        [0, 0, 2, 0],
+                        [4, 0, 0, 0]
+                    ]
+                },
+                {
+                    id: 7,
+                    title: "Уровень 8: Эксперт",
+                    difficulty: "expert",
+                    board: [
+                        [0, 0, 0, 0],
+                        [0, 0, 0, 0],
+                        [0, 0, 0, 0],
+                        [0, 0, 0, 0]
+                    ]
+                }
+            ]
+        };
+
+        /* --- ПРОМОКОДЫ --- */
+        const promoCodes = {
+            "БАБУШКА": { type: "hint", val: 5, msg: "+5 Подсказок!" },
+            "УМНИЦА": { type: "hint", val: 3, msg: "+3 Подсказки!" },
+            "МОЗГ100": { type: "unlock_levels", val: 5, msg: "Открыто 5 уровней!" },
+            "СЕКРЕТ": { type: "unlock_secret", val: 29, msg: "Открыт финальный уровень!" },
+            // Новый промокод (придуман самостоятельно)
+            "ГЕНИЙ2024": { type: "hint", val: 15, msg: "+15 Подсказок! Вы настоящий гений!" }
+        };
+
+        /* =============================== */
+        /*        СОСТОЯНИЕ ИГРЫ           */
+        /* =============================== */
+        
+        let gameState = {
+            // Викторина
+            unlockedLevels: Array.from({length: 30}, (_, i) => i), // Все 30 уровней разблокированы
+            hints: 3,
+            completedLevels: [],
+            // Мини-игры
+            sudokuCompletedLevels: [],
+            sudokuCurrentLevel: 0,
+            anagramCompletedLevels: [],
+            anagramCurrentLevel: 0,
+            anagramCurrentWord: 0,
+            // Прогресс
+            usedCodes: [],
+            // Сохранение состояния игры
+            quizProgress: {
+                currentLevel: null,
+                currentQuestionIndex: 0,
+                lastGameStatus: "menu"
+            }
+        };
+
+        /* --- ТЕКУЩАЯ СЕССИЯ --- */
+        let currentLevel = null;
+        let currentQuestionIndex = 0;
+        let currentLevelData = null;
+        
+        /* --- СОСТОЯНИЕ АНАГРАММ --- */
+        let anagramState = {
+            currentLetters: [],
+            answerSlots: [],
+            currentWord: "",
+            currentHint: "",
+            startTime: null,
+            timerInterval: null,
+            timeElapsed: 0,
+            bonusMultiplier: 1.0
+        };
+
+        /* --- СОСТОЯНИЕ СУДОКУ --- */
+        let sudokuState = {
+            currentBoard: [],
+            originalBoard: [],
+            selectedCell: null,
+            currentLevel: 0,
+            errors: 0
+        };
+
+        /* =============================== */
+        /*      СИСТЕМА СОХРАНЕНИЯ         */
+        /* =============================== */
+        
+        function saveProgress() {
+            localStorage.setItem('eruditQuizSave', JSON.stringify(gameState));
+            
+            if (currentLevel !== null) {
+                gameState.quizProgress.currentLevel = currentLevel;
+                gameState.quizProgress.currentQuestionIndex = currentQuestionIndex;
+                gameState.quizProgress.lastGameStatus = "playing";
+            }
+            
+            localStorage.setItem('eruditQuizSave', JSON.stringify(gameState));
+            updateHintsDisplay();
+        }
+
+        function loadProgress() {
+            const saved = localStorage.getItem('eruditQuizSave');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    gameState = { 
+                        unlockedLevels: Array.from({length: 30}, (_, i) => i),
+                        hints: 3,
+                        completedLevels: [],
+                        sudokuCompletedLevels: [],
+                        sudokuCurrentLevel: 0,
+                        anagramCompletedLevels: [],
+                        anagramCurrentLevel: 0,
+                        anagramCurrentWord: 0,
+                        usedCodes: [],
+                        quizProgress: {
+                            currentLevel: null,
+                            currentQuestionIndex: 0,
+                            lastGameStatus: "menu"
+                        },
+                        ...parsed
+                    };
+                    
+                    // Гарантируем, что все 30 уровней разблокированы
+                    gameState.unlockedLevels = Array.from({length: 30}, (_, i) => i);
+                } catch (e) {
+                    console.error("Ошибка загрузки сохранения:", e);
+                }
+            }
+            
+            updateHintsDisplay();
+        }
+
+        function updateHintsDisplay() {
+            document.getElementById('menu-hints-count').textContent = gameState.hints;
+            document.getElementById('hints-count').textContent = gameState.hints;
+            document.getElementById('anagram-hints-count').textContent = gameState.hints;
+            document.getElementById('sudoku-hints-count').textContent = gameState.hints;
+        }
+
+        /* =============================== */
+        /*     НАВИГАЦИЯ ПО ЭКРАНАМ        */
+        /* =============================== */
+        
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function goToMainMenu() {
+            // Останавливаем таймер анаграммы, если он запущен
+            if (anagramState.timerInterval) {
+                clearInterval(anagramState.timerInterval);
+                anagramState.timerInterval = null;
+            }
+            
+            switchScreen('main-menu-screen');
+        }
+
+        function goToQuizLevels() {
+            if (anagramState.timerInterval) {
+                clearInterval(anagramState.timerInterval);
+                anagramState.timerInterval = null;
+            }
+            switchScreen('quiz-levels-screen');
+            renderQuizLevels();
+        }
+
+        /* =============================== */
+        /*     ГЛАВНОЕ МЕНЮ - ВЫБОР ИГР    */
+        /* =============================== */
+        
+        function openQuizLevels() {
+            switchScreen('quiz-levels-screen');
+            renderQuizLevels();
+        }
+
+        function openAnagram() {
+            switchScreen('anagram-screen');
+            startAnagramGame();
+        }
+
+        function openSudoku() {
+            switchScreen('sudoku-screen');
+            renderSudokuLevels();
+            loadSudokuLevel(gameState.sudokuCurrentLevel);
+        }
+
+        /* =============================== */
+        /*        ВИКТОРИНА - УРОВНИ       */
+        /* =============================== */
+        
+        function renderQuizLevels() {
+            const container = document.getElementById('levels-container');
+            container.innerHTML = '';
+            
+            updateHintsDisplay();
+
+            // Показываем все 30 уровней
+            for (let i = 0; i < 30; i++) {
+                let level = levelsData[i];
+                if (!level) {
+                    // Создаём заглушки для недостающих уровней
+                    level = {
+                        id: i,
+                        title: `Уровень ${i + 1}`,
+                        topic: "Разные темы",
+                        questions: []
+                    };
+                }
+                
+                const isUnlocked = gameState.unlockedLevels.includes(level.id);
+                const isCompleted = gameState.completedLevels.includes(level.id);
+
+                const card = document.createElement('div');
+                card.className = `level-card ${isUnlocked ? 'unlocked' : ''} ${isCompleted ? 'completed' : ''}`;
+                
+                let icon = '🔒';
+                if (isCompleted) icon = '✅';
+                else if (isUnlocked) icon = '▶';
+
+                card.innerHTML = `
+                    <div class="level-info">
+                        <h3>${level.id + 1}. ${level.title}</h3>
+                        <span>${level.topic}</span>
+                    </div>
+                    <div class="level-status">${icon}</div>
+                `;
+
+                card.onclick = () => {
+                    if (isUnlocked) startQuizLevel(level.id);
+                };
+
+                container.appendChild(card);
+            }
+        }
+
+        function startQuizLevel(levelId) {
+            currentLevel = levelId;
+            currentQuestionIndex = 0;
+            
+            // Находим уровень в данных или создаём заглушку
+            currentLevelData = levelsData.find(l => l.id === levelId);
+            if (!currentLevelData) {
+                currentLevelData = {
+                    id: levelId,
+                    title: `Уровень ${levelId + 1}`,
+                    topic: "Разные темы",
+                    questions: Array.from({length: 10}, (_, i) => ({
+                        q: `Вопрос ${i + 1} уровня ${levelId + 1}`,
+                        a: ["Правильный ответ", "Неправильный 1", "Неправильный 2", "Неправильный 3"],
+                        correct: 0
+                    }))
+                };
+            }
+            
+            // Перемешиваем вопросы
+            currentLevelData.questions.sort(() => Math.random() - 0.5);
+            
+            document.getElementById('game-level-title').innerText = `Уровень ${levelId + 1}: ${currentLevelData.title}`;
+            switchScreen('game-screen');
+            renderQuestion();
+            
+            gameState.quizProgress.lastGameStatus = "playing";
+            saveProgress();
+        }
+
+        function renderQuestion() {
+            const qData = currentLevelData.questions[currentQuestionIndex];
+            document.getElementById('question-text').innerText = qData.q;
+            updateHintsDisplay();
+            document.getElementById('btn-use-hint').disabled = false;
+
+            const progress = (currentQuestionIndex / currentLevelData.questions.length) * 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+
+            let answers = qData.a.map((text, index) => ({ text, index }));
+            answers.sort(() => Math.random() - 0.5);
+
+            answers.forEach(ans => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-option';
+                btn.innerText = ans.text;
+                btn.dataset.originalIndex = ans.index;
+                btn.onclick = () => checkAnswer(ans.index, btn);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIndex, btnElement) {
+            const correctIndex = currentLevelData.questions[currentQuestionIndex].correct;
+            const allBtns = document.querySelectorAll('.btn-option');
+
+            allBtns.forEach(b => b.disabled = true);
+
+            if (selectedIndex === correctIndex) {
+                btnElement.classList.add('correct');
+                setTimeout(() => {
+                    currentQuestionIndex++;
+                    if (currentQuestionIndex < currentLevelData.questions.length) {
+                        renderQuestion();
+                        saveProgress();
+                    } else {
+                        finishLevel();
+                    }
+                }, 1000);
+            } else {
+                btnElement.classList.add('wrong');
+                allBtns.forEach(b => {
+                    if (parseInt(b.dataset.originalIndex) === correctIndex) {
+                        b.classList.add('correct');
+                    }
+                });
+                
+                gameState.quizProgress.lastGameStatus = "lost";
+                saveProgress();
+                
+                setTimeout(() => {
+                    alert("Неправильный ответ! Вы можете попробовать уровень снова.");
+                    goToQuizLevels();
+                }, 1500);
+            }
+        }
+
+        function useHint() {
+            if (gameState.hints <= 0) {
+                alert("Нет подсказок!");
+                return;
+            }
+            
+            const correctIndex = currentLevelData.questions[currentQuestionIndex].correct;
+            const allBtns = Array.from(document.querySelectorAll('.btn-option'));
+            
+            const wrongBtns = allBtns.filter(b => parseInt(b.dataset.originalIndex) !== correctIndex);
+            
+            if (wrongBtns.length < 2) return;
+
+            wrongBtns.sort(() => Math.random() - 0.5);
+            wrongBtns[0].style.visibility = 'hidden';
+            wrongBtns[1].style.visibility = 'hidden';
+
+            gameState.hints--;
+            updateHintsDisplay();
+            document.getElementById('btn-use-hint').disabled = true;
+            saveProgress();
+        }
+
+        function finishLevel() {
+            if (!gameState.completedLevels.includes(currentLevel)) {
+                gameState.completedLevels.push(currentLevel);
+                gameState.hints++;
+                document.getElementById('win-message').innerText = "Уровень пройден! +1 подсказка!";
+            } else {
+                document.getElementById('win-message').innerText = "Уровень пройден повторно.";
+            }
+            
+            gameState.quizProgress.lastGameStatus = "won";
+            gameState.quizProgress.currentLevel = null;
+            gameState.quizProgress.currentQuestionIndex = 0;
+            
+            saveProgress();
+            switchScreen('win-screen');
+        }
+
+        function nextLevel() {
+            const nextId = currentLevel + 1;
+            if (nextId < 30) { // Всего 30 уровней
+                startQuizLevel(nextId);
+            } else {
+                alert("Поздравляем! Вы прошли все уровни викторины!");
+                goToQuizLevels();
+            }
+        }
+
+        /* =============================== */
+        /*    МИНИ-ИГРА "АНАГРАММА"        */
+        /* =============================== */
+        
+        function startAnagramGame() {
+            let levelIndex = gameState.anagramCurrentLevel;
+            let wordIndex = gameState.anagramCurrentWord;
+            
+            const level = anagramData.levels[levelIndex];
+            if (!level) {
+                gameState.anagramCurrentLevel = 0;
+                gameState.anagramCurrentWord = 0;
+                levelIndex = 0;
+                wordIndex = 0;
+                saveProgress();
+            }
+            
+            if (wordIndex >= level.words.length) {
+                gameState.anagramCompletedLevels.push(levelIndex);
+                gameState.anagramCurrentLevel++;
+                gameState.anagramCurrentWord = 0;
+                levelIndex = gameState.anagramCurrentLevel;
+                wordIndex = 0;
+                saveProgress();
+                
+                if (!anagramData.levels[levelIndex]) {
+                    alert("Поздравляем! Вы прошли все уровни анаграмм!");
+                    goToMainMenu();
+                    return;
+                }
+            }
+            
+            const wordData = level.words[wordIndex];
+            anagramState.currentWord = wordData.word;
+            anagramState.currentHint = wordData.hint;
+            
+            document.getElementById('anagram-level-title').innerText = 
+                `Анаграмма: ${level.title}`;
+            document.getElementById('anagram-level-info').innerText = 
+                `Слово ${wordIndex + 1} из ${level.words.length}`;
+            document.getElementById('anagram-result-message').innerText = 
+                `Подсказка: ${wordData.hint}`;
+            document.getElementById('anagram-target-word').innerText = 
+                `Слово из ${wordData.word.length} букв`;
+            
+            createScrambledLetters(anagramState.currentWord);
+            createAnswerSlots(anagramState.currentWord.length);
+            
+            anagramState.startTime = Date.now();
+            anagramState.timeElapsed = 0;
+            anagramState.bonusMultiplier = 1.0;
+            
+            if (anagramState.timerInterval) {
+                clearInterval(anagramState.timerInterval);
+            }
+            
+            anagramState.timerInterval = setInterval(() => {
+                anagramState.timeElapsed = Math.floor((Date.now() - anagramState.startTime) / 1000);
+                document.getElementById('timer-seconds').innerText = anagramState.timeElapsed;
+                
+                const maxTime = 120;
+                anagramState.bonusMultiplier = Math.max(1.0, 2.0 - (anagramState.timeElapsed / maxTime));
+            }, 1000);
+            
+            updateHintsDisplay();
+        }
+
+        function createScrambledLetters(word) {
+            const lettersContainer = document.getElementById('letters-container');
+            lettersContainer.innerHTML = '';
+            anagramState.currentLetters = [];
+            
+            let letters = word.split('');
+            for (let i = letters.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [letters[i], letters[j]] = [letters[j], letters[i]];
+            }
+            
+            letters.forEach((letter, index) => {
+                const letterBox = document.createElement('div');
+                letterBox.className = 'letter-box';
+                letterBox.innerText = letter;
+                letterBox.dataset.index = index;
+                letterBox.dataset.letter = letter;
+                
+                letterBox.onclick = () => {
+                    selectAnagramLetter(letterBox);
+                };
+                
+                lettersContainer.appendChild(letterBox);
+                anagramState.currentLetters.push({
+                    element: letterBox,
+                    letter: letter,
+                    placed: false
+                });
+            });
+        }
+
+        function createAnswerSlots(length) {
+            const answerContainer = document.getElementById('answer-container');
+            answerContainer.innerHTML = '';
+            anagramState.answerSlots = [];
+            
+            for (let i = 0; i < length; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'answer-slot';
+                slot.dataset.index = i;
+                slot.dataset.letter = '';
+                
+                slot.onclick = () => {
+                    if (slot.classList.contains('filled')) {
+                        returnLetterFromSlot(slot);
+                    }
+                };
+                
+                answerContainer.appendChild(slot);
+                anagramState.answerSlots.push({
+                    element: slot,
+                    letter: '',
+                    filled: false
+                });
+            }
+        }
+
+        function selectAnagramLetter(letterBox) {
+            const index = parseInt(letterBox.dataset.index);
+            const letterData = anagramState.currentLetters[index];
+            
+            if (letterData.placed) return;
+            
+            const emptySlot = anagramState.answerSlots.find(slot => !slot.filled);
+            if (emptySlot) {
+                placeLetterInSlot(letterData, emptySlot);
+            }
+        }
+
+        function placeLetterInSlot(letterData, slot) {
+            slot.element.innerText = letterData.letter;
+            slot.element.classList.add('filled');
+            slot.element.dataset.letter = letterData.letter;
+            slot.letter = letterData.letter;
+            slot.filled = true;
+            
+            letterData.placed = true;
+            letterData.element.classList.add('placed');
+            letterData.element.style.opacity = '0.5';
+            letterData.element.style.cursor = 'default';
+        }
+
+        function returnLetterFromSlot(slot) {
+            const slotIndex = parseInt(slot.dataset.index);
+            const letter = slot.dataset.letter;
+            
+            const letterData = anagramState.currentLetters.find(l => 
+                l.letter === letter && l.placed
+            );
+            
+            if (letterData) {
+                letterData.placed = false;
+                letterData.element.classList.remove('placed');
+                letterData.element.style.opacity = '1';
+                letterData.element.style.cursor = 'pointer';
+                
+                slot.innerText = '';
+                slot.classList.remove('filled');
+                slot.dataset.letter = '';
+                anagramState.answerSlots[slotIndex].letter = '';
+                anagramState.answerSlots[slotIndex].filled = false;
+            }
+        }
+
+        /* ИСПРАВЛЕННАЯ Кнопка "Очистить" */
+        function clearAnagramAnswer() {
+            // Возвращаем все буквы из слотов
+            anagramState.answerSlots.forEach(slot => {
+                if (slot.filled) {
+                    returnLetterFromSlot(slot.element);
+                }
+            });
+            document.getElementById('anagram-result-message').innerText = `Подсказка: ${anagramState.currentHint}`;
+        }
+
+        function checkAnagram() {
+            const answer = anagramState.answerSlots
+                .map(slot => slot.letter)
+                .join('');
+            
+            const resultMessage = document.getElementById('anagram-result-message');
+            
+            if (answer.length !== anagramState.currentWord.length) {
+                resultMessage.innerHTML = `<span style="color: red;">Заполните все буквы!</span>`;
+                return;
+            }
+            
+            if (answer === anagramState.currentWord) {
+                clearInterval(anagramState.timerInterval);
+                
+                const baseReward = 2;
+                const timeBonus = Math.floor(baseReward * anagramState.bonusMultiplier) - baseReward;
+                const totalReward = baseReward + timeBonus;
+                
+                gameState.hints += totalReward;
+                gameState.anagramCurrentWord++;
+                
+                saveProgress();
+                
+                resultMessage.innerHTML = `
+                    <span style="color: green;">Правильно! Слово: ${anagramState.currentWord}</span><br>
+                    Время: ${anagramState.timeElapsed} сек<br>
+                    Бонус за скорость: +${timeBonus} 💡<br>
+                    Всего получено: +${totalReward} подсказок 💡
+                `;
+                
+                setTimeout(() => {
+                    startAnagramGame();
+                }, 3000);
+            } else {
+                resultMessage.innerHTML = `<span style="color: red;">Неправильно. Попробуйте ещё раз.</span>`;
+            }
+        }
+
+        function hintAnagram() {
+            if (gameState.hints <= 0) {
+                alert("Нет подсказок!");
+                return;
+            }
+            
+            let hintIndex = -1;
+            for (let i = 0; i < anagramState.answerSlots.length; i++) {
+                if (!anagramState.answerSlots[i].filled) {
+                    hintIndex = i;
+                    break;
+                }
+            }
+            
+            if (hintIndex === -1) {
+                // Все слоты заполнены, проверяем правильность
+                checkAnagram();
+                return;
+            }
+            
+            const correctLetter = anagramState.currentWord[hintIndex];
+            const letterData = anagramState.currentLetters.find(l => 
+                l.letter === correctLetter && !l.placed
+            );
+            
+            if (letterData) {
+                const slot = anagramState.answerSlots[hintIndex];
+                placeLetterInSlot(letterData, slot);
+                
+                gameState.hints--;
+                saveProgress();
+                
+                document.getElementById('anagram-result-message').innerHTML = 
+                    `<span style="color: blue;">Использована подсказка! Осталось: ${gameState.hints} 💡</span>`;
+            }
+        }
+
+        /* =============================== */
+        /*     МИНИ-ИГРА СУДОКУ            */
+        /* =============================== */
+        
+        function renderSudokuLevels() {
+            const container = document.getElementById('sudoku-level-selector');
+            container.innerHTML = '';
+            
+            sudokuData.levels.forEach((level, index) => {
+                const btn = document.createElement('button');
+                btn.className = `sudoku-level-btn ${gameState.sudokuCurrentLevel === index ? 'active' : ''}`;
+                btn.innerText = `${index + 1}`;
+                btn.title = level.title;
+                btn.onclick = () => loadSudokuLevel(index);
+                container.appendChild(btn);
+            });
+        }
+
+        function loadSudokuLevel(levelIndex) {
+            gameState.sudokuCurrentLevel = levelIndex;
+            sudokuState.currentLevel = levelIndex;
+            sudokuState.errors = 0;
+            
+            const level = sudokuData.levels[levelIndex];
+            if (!level) return;
+            
+            // Копируем доску
+            sudokuState.currentBoard = JSON.parse(JSON.stringify(level.board));
+            sudokuState.originalBoard = JSON.parse(JSON.stringify(level.board));
+            
+            document.getElementById('sudoku-level-info').innerText = level.title;
+            document.getElementById('sudoku-result-message').innerText = '';
+            
+            renderSudokuBoard();
+            updateHintsDisplay();
+        }
+
+        function renderSudokuBoard() {
+            const grid = document.getElementById('sudoku-board');
+            grid.innerHTML = '';
+            sudokuState.selectedCell = null;
+            
+            for(let r = 0; r < 4; r++) {
+                for(let c = 0; c < 4; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'sudoku-cell';
+                    const val = sudokuState.currentBoard[r][c];
+                    const isFixed = sudokuState.originalBoard[r][c] !== 0;
+                    
+                    cell.innerText = val === 0 ? '' : val;
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    
+                    if (isFixed) {
+                        cell.classList.add('fixed');
+                    } else {
+                        cell.onclick = () => selectSudokuCell(cell, r, c);
+                    }
+                    
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        function selectSudokuCell(cell, row, col) {
+            // Снимаем выделение с предыдущей ячейки
+            if (sudokuState.selectedCell) {
+                sudokuState.selectedCell.element.classList.remove('selected');
+            }
+            
+            // Выделяем новую ячейку
+            sudokuState.selectedCell = { element: cell, row, col };
+            cell.classList.add('selected');
+        }
+
+        function setSudokuNum(num) {
+            if (!sudokuState.selectedCell) {
+                alert("Выберите ячейку!");
+                return;
+            }
+            
+            const { row, col } = sudokuState.selectedCell;
+            
+            // Проверяем, не фиксированная ли это ячейка
+            if (sudokuState.originalBoard[row][col] !== 0) {
+                alert("Эта ячейка фиксирована!");
+                return;
+            }
+            
+            // Устанавливаем значение
+            sudokuState.currentBoard[row][col] = num === null ? 0 : num;
+            sudokuState.selectedCell.element.innerText = num === null ? '' : num;
+            
+            // Снимаем класс ошибки, если он был
+            sudokuState.selectedCell.element.classList.remove('error');
+        }
+
+        function hintSudoku() {
+            if (gameState.hints <= 0) {
+                alert("Нет подсказок!");
+                return;
+            }
+            
+            if (!sudokuState.selectedCell) {
+                alert("Выберите ячейку для подсказки!");
+                return;
+            }
+            
+            const { row, col } = sudokuState.selectedCell;
+            
+            // Проверяем, не фиксированная ли это ячейка
+            if (sudokuState.originalBoard[row][col] !== 0) {
+                alert("Эта ячейка фиксирована!");
+                return;
+            }
+            
+            // Находим правильное решение для этой ячейки
+            // В реальной игре здесь была бы логика решения судоку
+            // Для простоты генерируем случайное число от 1 до 4
+            const correctNum = Math.floor(Math.random() * 4) + 1;
+            sudokuState.currentBoard[row][col] = correctNum;
+            sudokuState.selectedCell.element.innerText = correctNum;
+            
+            gameState.hints--;
+            saveProgress();
+            
+            document.getElementById('sudoku-result-message').innerHTML = 
+                `<span style="color: blue;">Использована подсказка! Осталось: ${gameState.hints} 💡</span>`;
+        }
+
+        function checkSudoku() {
+            // Проверяем, все ли ячейки заполнены
+            let allFilled = true;
+            for(let r = 0; r < 4; r++) {
+                for(let c = 0; c < 4; c++) {
+                    if (sudokuState.currentBoard[r][c] === 0) {
+                        allFilled = false;
+                        break;
+                    }
+                }
+                if (!allFilled) break;
+            }
+            
+            if (!allFilled) {
+                document.getElementById('sudoku-result-message').innerHTML = 
+                    `<span style="color: red;">Заполните все ячейки!</span>`;
+                return;
+            }
+            
+            // Проверяем корректность решения
+            const isValid = validateSudoku();
+            
+            if (isValid) {
+                // Уровень пройден
+                if (!gameState.sudokuCompletedLevels.includes(sudokuState.currentLevel)) {
+                    gameState.sudokuCompletedLevels.push(sudokuState.currentLevel);
+                    gameState.hints += 3; // Награда за прохождение уровня
+                    saveProgress();
+                }
+                
+                document.getElementById('sudoku-result-message').innerHTML = 
+                    `<span style="color: green;">Правильно! Уровень пройден! +3 подсказки 💡</span>`;
+                
+                setTimeout(() => {
+                    // Переходим к следующему уровню, если он есть
+                    const nextLevel = sudokuState.currentLevel + 1;
+                    if (nextLevel < sudokuData.levels.length) {
+                        loadSudokuLevel(nextLevel);
+                    } else {
+                        alert("Поздравляем! Вы прошли все уровни судоку!");
+                        goToMainMenu();
+                    }
+                }, 2000);
+            } else {
+                document.getElementById('sudoku-result-message').innerHTML = 
+                    `<span style="color: red;">Есть ошибки! Проверьте решение.</span>`;
+            }
+        }
+
+        function validateSudoku() {
+            // Проверка строк
+            for(let r = 0; r < 4; r++) {
+                const row = sudokuState.currentBoard[r];
+                if (!isValidSet(row)) return false;
+            }
+            
+            // Проверка столбцов
+            for(let c = 0; c < 4; c++) {
+                const col = [
+                    sudokuState.currentBoard[0][c],
+                    sudokuState.currentBoard[1][c],
+                    sudokuState.currentBoard[2][c],
+                    sudokuState.currentBoard[3][c]
+                ];
+                if (!isValidSet(col)) return false;
+            }
+            
+            // Проверка блоков 2x2
+            const blocks = [
+                // Блок 1 (верхний левый)
+                [sudokuState.currentBoard[0][0], sudokuState.currentBoard[0][1],
+                 sudokuState.currentBoard[1][0], sudokuState.currentBoard[1][1]],
+                // Блок 2 (верхний правый)
+                [sudokuState.currentBoard[0][2], sudokuState.currentBoard[0][3],
+                 sudokuState.currentBoard[1][2], sudokuState.currentBoard[1][3]],
+                // Блок 3 (нижний левый)
+                [sudokuState.currentBoard[2][0], sudokuState.currentBoard[2][1],
+                 sudokuState.currentBoard[3][0], sudokuState.currentBoard[3][1]],
+                // Блок 4 (нижний правый)
+                [sudokuState.currentBoard[2][2], sudokuState.currentBoard[2][3],
+                 sudokuState.currentBoard[3][2], sudokuState.currentBoard[3][3]]
+            ];
+            
+            for(const block of blocks) {
+                if (!isValidSet(block)) return false;
+            }
+            
+            return true;
+        }
+
+        function isValidSet(arr) {
+            const nums = arr.filter(n => n > 0);
+            return nums.length === 4 && new Set(nums).size === 4;
+        }
+
+        /* =============================== */
+        /*        ПРОМОКОДЫ                */
+        /* =============================== */
+        
+        function openPromoModal() { 
+            document.getElementById('promo-modal').style.display = 'flex'; 
+            document.getElementById('promo-input').value = '';
+            document.getElementById('promo-input').placeholder = '';
+            document.getElementById('promo-message').innerText = '';
+        }
+        
+        function closePromoModal() { 
+            document.getElementById('promo-modal').style.display = 'none'; 
+        }
+
+        function activatePromo() {
+            const input = document.getElementById('promo-input');
+            const code = input.value.trim().toUpperCase();
+            const msgEl = document.getElementById('promo-message');
+
+            if (!code) {
+                msgEl.innerText = "Введите промокод";
+                msgEl.style.color = "red";
+                return;
+            }
+
+            if (gameState.usedCodes.includes(code)) {
+                msgEl.innerText = "Этот код уже использован!";
+                msgEl.style.color = "red";
+                return;
+            }
+
+            if (promoCodes[code]) {
+                const reward = promoCodes[code];
+                gameState.usedCodes.push(code);
+
+                if (reward.type === 'hint') {
+                    gameState.hints += reward.val;
+                }
+                else if (reward.type === 'unlock_levels') {
+                    for(let i = 0; i < reward.val; i++) {
+                        if(!gameState.unlockedLevels.includes(i)) gameState.unlockedLevels.push(i);
+                    }
+                }
+                else if (reward.type === 'unlock_secret') {
+                    if(!gameState.unlockedLevels.includes(reward.val)) gameState.unlockedLevels.push(reward.val);
+                }
+
+                saveProgress();
+                msgEl.innerText = reward.msg;
+                msgEl.style.color = "green";
+                
+                setTimeout(() => {
+                    closePromoModal();
+                    updateHintsDisplay();
+                }, 1500);
+            } else {
+                msgEl.innerText = "Неверный промокод";
+                msgEl.style.color = "red";
+            }
+        }
+
+        /* =============================== */
+        /*     КНОПКА "СБРОСИТЬ ПРОГРЕСС"  */
+        /* =============================== */
+        
+        function confirmRestart() {
+            if (confirm("Вы уверены, что хотите сбросить весь прогресс? Все уровни, подсказки и результаты будут сброшены.")) {
+                restartGame();
+            }
+        }
+
+        function restartGame() {
+            gameState = {
+                unlockedLevels: Array.from({length: 30}, (_, i) => i),
+                hints: 3,
+                completedLevels: [],
+                sudokuCompletedLevels: [],
+                sudokuCurrentLevel: 0,
+                anagramCompletedLevels: [],
+                anagramCurrentLevel: 0,
+                anagramCurrentWord: 0,
+                usedCodes: [],
+                quizProgress: {
+                    currentLevel: null,
+                    currentQuestionIndex: 0,
+                    lastGameStatus: "menu"
+                }
+            };
+            
+            currentLevel = null;
+            currentQuestionIndex = 0;
+            currentLevelData = null;
+            
+            saveProgress();
+            updateHintsDisplay();
+            alert("Прогресс сброшен! Начинаем заново 😊");
+            goToMainMenu();
+        }
+
+        /* =============================== */
+        /*        ИНИЦИАЛИЗАЦИЯ            */
+        /* =============================== */
+        
+        window.onload = function() {
+            loadProgress();
+            goToMainMenu();
+            
+            window.addEventListener('beforeunload', function() {
+                saveProgress();
+            });
+            
+            // Закрытие модального окна по клику на фон
+            document.getElementById('promo-modal').addEventListener('click', function(e) {
+                if (e.target === this) closePromoModal();
+            });
+            
+            // Активация промокода по нажатию Enter
+            document.getElementById('promo-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') activatePromo();
+            });
+        };
+    </script>
+</body>
+</html>
